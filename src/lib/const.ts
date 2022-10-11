@@ -16,3 +16,5 @@ export type OFFSET = [top, right, bottom, left];
 
 export type SIZE_WITH_SCALE = [width, height, scale];
 export type POINT_WITH_SCALE = [left, top, scale];
+
+export type END_LISTENER = (() => void) | undefined;

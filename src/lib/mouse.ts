@@ -5,7 +5,9 @@ export function clip({ target }: { target: Node | EventTarget }) {
 function doClip(target: Node) {
 	const range = document.createRange();
 	range.selectNode(target);
-	window.getSelection().addRange(range);
+	const sel_1st = window.getSelection();
+	if (sel_1st) sel_1st.addRange(range);
 	document.execCommand('copy');
-	window.getSelection().empty();
+	const sel_2nd = window.getSelection();
+	if (sel_2nd) sel_2nd.empty();
 }
