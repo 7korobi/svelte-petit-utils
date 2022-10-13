@@ -1,4 +1,7 @@
 import { listen } from 'svelte/internal';
+import { writable } from 'svelte/store';
+
+export const nop = () => {};
 
 let counter = 360;
 export function instanceId() {
@@ -13,6 +16,23 @@ export function timeoutOn(cb: () => void, msec: number) {
 export function intervalOn(cb: () => void, msec: number) {
 	const tid = setInterval(cb, msec);
 	return () => clearInterval(tid);
+}
+
+export function debounce<T>(init: T, timeout: number) {
+	let bye = nop;
+	const { set, subscribe } = writable(init, (set) => () => {
+		bye();
+	});
+
+	return {
+		set(value: T) {
+			bye();
+			bye = timeoutOn(() => {
+				set(value);
+			}, timeout);
+		},
+		subscribe
+	};
 }
 
 export async function sleep(msec: number, options: { signal?: AbortSignal }) {
