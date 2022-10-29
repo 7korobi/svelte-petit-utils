@@ -37,6 +37,11 @@
 		names.order((o) => o.name.length, 'by name length');
 	}}>order to name.length {$names_order_type}</button
 >
+<button
+	on:click={() => {
+		names.shuffle();
+	}}>shuffle</button
+>
 
 <p>
 	{names.find('4')?.id} : {names.find('4')?.name}

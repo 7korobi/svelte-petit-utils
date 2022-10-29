@@ -58,6 +58,12 @@ export function table<T>(data: T[] = [], finder = (item: T) => (item as any).id 
 			},
 			where(query: (item: T) => boolean) {
 				check.set(query);
+				return value;
+			},
+			shuffle() {
+				orderType.set(true);
+				sort.set(() => Math.random());
+				return value;
 			},
 			order(order: IOrder<T>, key = order ? order.key || order.toString() : undefined) {
 				if (order) {
