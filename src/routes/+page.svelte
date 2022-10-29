@@ -1,45 +1,48 @@
 <script lang="ts">
-	import { Location } from '$lib';
+	import { table, SearchText } from '$lib';
+	const names = table([
+		{ id: 1, name: 'イチ' },
+		{ id: 2, name: 'ニ' },
+		{ id: 3, name: 'サン' },
+		{ id: 4, name: 'シ' }
+	]);
+	const names_order_type = names.orderType;
 
-	let searchParams = {
-		keys: ['a', 'b'], // &keys=a&keys=b
-		key: 'c'
-	};
-	let hash = 'test'; // #test
-	let protocol: string; // http:
-	let host: string; // localhost
-	let port: number; // 3000
-	let hostname: string;
-	let pathname: string;
-	$: console.log({ searchParams, hash, protocol, host, port, hostname, pathname });
+	let search = 'デフォルト';
+	let search_reg;
 </script>
-
-<Location
-	bind:searchParams
-	bind:hash
-	bind:protocol
-	bind:host
-	bind:port
-	bind:hostname
-	bind:pathname
-/>
 
 <h1>Welcome to your library project</h1>
 <p>Create your package using @sveltejs/package and preview/showcase your work with SvelteKit</p>
 <p>Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation</p>
 
+{#each $names as item (item.id)}
+	<p>
+		{item.id} : {item.name}
+	</p>
+{/each}
+
+<button
+	on:click={() => {
+		names.order((o) => o.id, 'by id');
+	}}>order to id {$names_order_type}</button
+>
+<button
+	on:click={() => {
+		names.order((o) => o.name, 'by name');
+	}}>order to name {$names_order_type}</button
+>
+<button
+	on:click={() => {
+		names.order((o) => o.name.length, 'by name length');
+	}}>order to name.length {$names_order_type}</button
+>
+
 <p>
-	hash: <input type="text" bind:value={hash} />
+	{names.find('4')?.id} : {names.find('4')?.name}
 </p>
-<p>
-	searchparams key: <input type="text" bind:value={searchParams.key} />
-</p>
-<p>
-	searchparams keys:
-	{#each searchParams.keys as key, idx (idx)}
-		{idx}: <input type="text" bind:value={key} />
-	{/each}
-	{#each [''] as key, idx (searchParams.keys.length)}
-		(add keys): <input type="text" bind:value={searchParams.keys[searchParams.keys.length]} />
-	{/each}
-</p>
+
+<SearchText bind:value={search} bind:regexp={search_reg} />
+
+{search}
+{search_reg}
