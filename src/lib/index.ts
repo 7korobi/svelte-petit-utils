@@ -1,6 +1,3 @@
-import SearchText from './design/search-text.svelte';
-export { SearchText };
-
 export * from './bits.js';
 export * from './const.js';
 export * from './mouse.js';

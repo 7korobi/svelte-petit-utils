@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { table, SearchText } from '$lib';
+	import { table } from '$lib';
 	const names = table([
 		{ id: 1, name: 'イチ' },
 		{ id: 2, name: 'ニ' },
@@ -7,9 +7,6 @@
 		{ id: 4, name: 'シ' }
 	]);
 	const names_order_type = names.orderType;
-
-	let search = 'デフォルト';
-	let search_reg;
 </script>
 
 <h1>Welcome to your library project</h1>
@@ -46,8 +43,3 @@
 <p>
 	{names.find('4')?.id} : {names.find('4')?.name}
 </p>
-
-<SearchText bind:value={search} bind:regexp={search_reg} />
-
-{search}
-{search_reg}
