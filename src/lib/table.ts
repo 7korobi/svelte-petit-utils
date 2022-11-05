@@ -1,5 +1,5 @@
 import { derived, writable, type Readable } from 'svelte/store';
-import { inPlaceSort, type ISortBy } from './fast-sort';
+import { inPlaceSort, type ISortBy } from './fast-sort.js';
 
 type IOrder<T> = ((ISortBy<T> | ISortBy<T>[]) & { key?: string }) | undefined;
 
