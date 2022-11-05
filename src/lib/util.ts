@@ -32,9 +32,10 @@ export function intervalOn(cb: () => void, msec: number) {
 
 export async function sleep(msec: number, options: { signal?: AbortSignal }) {
 	return new Promise<void>((ok, ng) => {
-		setTimeout(ok, msec);
+		const tid = setTimeout(ok, msec);
 		if (options.signal) {
 			const bye = listen(options.signal, 'abort', () => {
+				clearInterval(tid);
 				bye();
 				ng();
 			});

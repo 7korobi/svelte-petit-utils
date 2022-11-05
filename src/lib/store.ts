@@ -1,6 +1,6 @@
 import type { Readable } from 'svelte/store';
 import { writable } from 'svelte/store';
-import { nop, timeoutOn } from './util';
+import { nop, timeoutOn } from './util.js';
 
 export function debounce<T>(init: T, timeout: number) {
 	let bye = nop;
