@@ -1,12 +1,22 @@
 <script lang="ts">
-	import { table } from '$lib';
-	const names = table([
-		{ id: 1, name: 'イチ' },
-		{ id: 2, name: 'ニ' },
-		{ id: 3, name: 'サン' },
-		{ id: 4, name: 'シ' }
-	]);
-	const names_order_type = names.orderType;
+	import { table, __BROWSER__ } from '$lib';
+	const namesBase = table(
+		(o) => `${o.id}`,
+		[
+			{ id: 1, name: 'イチ' },
+			{ id: 2, name: 'ニ' },
+			{ id: 3, name: 'サン' },
+			{ id: 4, name: 'シ' }
+		]
+	);
+	namesBase.add([{ id: 10, name: 'トオ' }]);
+	let id = 100;
+	__BROWSER__ &&
+		setInterval(() => {
+			id++;
+			namesBase.add([{ id, name: `name-${id}` }]);
+		}, 2000);
+	let names = namesBase.toReader();
 </script>
 
 <h1>Welcome to your library project</h1>
@@ -21,25 +31,25 @@
 
 <button
 	on:click={() => {
-		names.order((o) => o.id, 'by id');
-	}}>order to id {$names_order_type}</button
+		names = names.order((o) => o.id);
+	}}>order to id {$names.orderType}</button
 >
 <button
 	on:click={() => {
-		names.order((o) => o.name, 'by name');
-	}}>order to name {$names_order_type}</button
+		names = names.order((o) => o.name);
+	}}>order to name {$names.orderType}</button
 >
 <button
 	on:click={() => {
-		names.order((o) => o.name.length, 'by name length');
-	}}>order to name.length {$names_order_type}</button
+		names = names.order((o) => o.name?.length);
+	}}>order to name.length {$names.orderType}</button
 >
 <button
 	on:click={() => {
-		names.shuffle();
+		names = names.where((o) => 0 !== o.id % 2).shuffle();
 	}}>shuffle</button
 >
 
 <p>
-	{names.find('4')?.id} : {names.find('4')?.name}
+	{names.find('10')?.id} : {names.find('10')?.name}
 </p>
