@@ -11,7 +11,7 @@ export type MapReduceContext<T, G> = readonly [
 ];
 
 export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G>) {
-	return { COUNT, SUM, POW, MAX, MIN, AVERAGE, VARIANCE, QUANTILE, MEDIAN: QUANTILE('1/2') };
+	return { COUNT, SUM, POW, MAX, MIN, AVERAGE, VARIANCE, FREQUENCY, QUANTILE, MEDIAN: QUANTILE('1/2') };
 
 	function COUNT(n = 1) {
 		const [o, item, itemId, format, calc, add, del] = context<{ count: number }>('COUNT');
@@ -53,8 +53,19 @@ export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G
 		return undefined as any as typeof oo;
 	}
 
-	function standard(this: any, data: number) {
-		return (data - this.avg) / this.sd;
+	function FREQUENCY<T>(x: T) {
+		const [o, item, itemId, format, calc, add, del] = context<{[x: string]: number}>('FREQUENCY')
+
+		format(() => {
+			o[x as string] = 0
+		})
+		add(()=>{
+			o[x as string]++
+		})
+		del(()=>{
+			o[x as string]--
+		})
+		return undefined as any as typeof o;		
 	}
 
 	function QUANTILE(...ats: (number | string)[]) {
@@ -65,7 +76,7 @@ export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G
 			return [`${x}`, c / m]
 		})
 		return function QUANTILE<X extends number | string>(x: X) {
-			const [oo, item, itemId, format, calc, add, del] = context<{[at: string]: X}>('MEDIAN')
+			const [oo, item, itemId, format, calc, add, del] = context<{[at: string]: X}>('QUANTILE')
 			const o = oo as { quantile_data: X[] } & typeof oo;
 
 			format(() => {
@@ -93,6 +104,10 @@ export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G
 			})
 			return undefined as any as typeof oo;
 		}
+	}
+
+	function standard(this: any, data: number) {
+		return (data - this.avg) / this.sd;
 	}
 
 	function VARIANCE(x: number, count = 1) {
