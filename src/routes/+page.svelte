@@ -19,7 +19,7 @@
 			namesBase.add([{ id, name: `name-${id}` }]);
 		}, 2000);
 	let names = namesBase.toReader();
-	$: namesCount = names.reduce((o, id, { QUANTILE, VARIANCE, MAX, MIN }) => ({ ...MAX(o.id), ...MIN(o.id), ...VARIANCE(o.id), ...QUANTILE(0, '1/2', 1)(o.id) }));
+	$: namesCount = names.reduce((o, id, { MEDIAN, VARIANCE, MAX, MIN }) => ({ ...MAX(o.id), ...MIN(o.id), ...VARIANCE(o.id), ...MEDIAN(o.id) }));
 	$: console.log($namesCount)
 </script>
 

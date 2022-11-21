@@ -11,7 +11,7 @@ export type MapReduceContext<T, G> = readonly [
 ];
 
 export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G>) {
-	return { COUNT, SUM, POW, MAX, MIN, AVERAGE, VARIANCE, QUANTILE };
+	return { COUNT, SUM, POW, MAX, MIN, AVERAGE, VARIANCE, QUANTILE, MEDIAN: QUANTILE('1/2') };
 
 	function COUNT(n = 1) {
 		const [o, item, itemId, format, calc, add, del] = context<{ count: number }>('COUNT');
