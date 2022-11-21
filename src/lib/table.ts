@@ -220,7 +220,7 @@ function writableTable<T>(
 
 				ground[key] ||= {};
 				base = ground[key];
-				groupIdx = `${groundIdx}.${key}`;
+				groupIdx = `${groundIdx}.GROUP.${key}`;
 				cb();
 
 				base = ground;
