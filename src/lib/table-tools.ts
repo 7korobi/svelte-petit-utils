@@ -1,4 +1,4 @@
-import { inPlaceSort } from "./fast-sort"
+import { inPlaceSort } from './fast-sort';
 
 export type MapReduceContext<T, G> = readonly [
 	G,
@@ -11,7 +11,18 @@ export type MapReduceContext<T, G> = readonly [
 ];
 
 export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G>) {
-	return { COUNT, SUM, POW, MAX, MIN, AVERAGE, VARIANCE, FREQUENCY, QUANTILE, MEDIAN: QUANTILE('1/2') };
+	return {
+		COUNT,
+		SUM,
+		POW,
+		MAX,
+		MIN,
+		AVERAGE,
+		VARIANCE,
+		FREQUENCY,
+		QUANTILE,
+		MEDIAN: QUANTILE('1/2')
+	};
 
 	function COUNT(n = 1) {
 		const [o, item, itemId, format, calc, add, del] = context<{ count: number }>('COUNT');
@@ -54,29 +65,31 @@ export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G
 	}
 
 	function FREQUENCY<T>(x: T) {
-		const [o, item, itemId, format, calc, add, del] = context<{[x: string]: number}>('FREQUENCY')
+		const [o, item, itemId, format, calc, add, del] = context<{ [x: string]: number }>(
+			`FREQUENCY.${x}`
+		);
 
 		format(() => {
-			o[x as string] = 0
-		})
-		add(()=>{
-			o[x as string]++
-		})
-		del(()=>{
-			o[x as string]--
-		})
-		return undefined as any as typeof o;		
+			o[x as string] = 0;
+		});
+		add(() => {
+			o[x as string]++;
+		});
+		del(() => {
+			o[x as string]--;
+		});
+		return undefined as any as typeof o;
 	}
 
 	function QUANTILE(...ats: (number | string)[]) {
-		const idxs: [string, number][] = ats.map((x)=> {
+		const idxs: [string, number][] = ats.map((x) => {
 			if ('number' === typeof x) return [`${x}`, x];
-			let [c, m] = x.split('/').map(Number)
+			let [c, m] = x.split('/').map(Number);
 			if (!m) throw `${x} is not fraction.`;
-			return [`${x}`, c / m]
-		})
+			return [`${x}`, c / m];
+		});
 		return function QUANTILE<X extends number | string>(x: X) {
-			const [oo, item, itemId, format, calc, add, del] = context<{[at: string]: X}>('QUANTILE')
+			const [oo, item, itemId, format, calc, add, del] = context<{ [at: string]: X }>('QUANTILE');
 			const o = oo as { quantile_data: X[] } & typeof oo;
 
 			format(() => {
@@ -84,26 +97,26 @@ export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G
 				for (const [label, at] of idxs) {
 					o[label] = undefined as any;
 				}
-			})
-			add(()=>{
+			});
+			add(() => {
 				o.quantile_data.push(x);
-			})
-			del(()=>{
+			});
+			del(() => {
 				const idx = o.quantile_data.indexOf(x);
 				o.quantile_data.splice(idx, 1);
-			})
-			calc(()=>{
-				inPlaceSort(o.quantile_data).asc()
-				const tail = o.quantile_data.length - 1
+			});
+			calc(() => {
+				inPlaceSort(o.quantile_data).asc();
+				const tail = o.quantile_data.length - 1;
 				for (const [label, at] of idxs) {
-					const low = Math.ceil(at * tail)
-					const high = Math.floor(at * tail)
-					const idx = (high - at < at - low) ? high : low;
+					const low = Math.ceil(at * tail);
+					const high = Math.floor(at * tail);
+					const idx = high - at < at - low ? high : low;
 					o[label] = o.quantile_data[idx];
 				}
-			})
+			});
 			return undefined as any as typeof oo;
-		}
+		};
 	}
 
 	function standard(this: any, data: number) {

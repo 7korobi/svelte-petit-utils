@@ -1,6 +1,6 @@
 import type { Readable, Subscriber, Writable, Unsubscriber } from 'svelte/store';
 
-import { BasicTools, type MapReduceContext } from './table-tools.js'
+import { BasicTools, type MapReduceContext } from './table-tools.js';
 import { inPlaceSort, sort, type ISortBy } from './fast-sort.js';
 
 type HasKey<T> = { key?: string } & T;
@@ -312,7 +312,7 @@ function writableTable<T>(
 			if (dels) {
 				for (const cb of Object.values(dels)) {
 					cb();
-				}	
+				}
 			}
 
 			for (const cb of Object.values(addAts[itemId])) {

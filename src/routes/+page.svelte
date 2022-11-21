@@ -19,8 +19,14 @@
 			namesBase.add([{ id, name: `name-${id}` }]);
 		}, 2000);
 	let names = namesBase.toReader();
-	$: namesCount = names.reduce((o, id, { MEDIAN, VARIANCE, MAX, MIN }) => ({ ...MAX(o.id), ...MIN(o.id), ...VARIANCE(o.id), ...MEDIAN(o.id) }));
-	$: console.log($namesCount)
+	$: namesCount = names.reduce((o, id, { FREQUENCY, MEDIAN, VARIANCE, MAX, MIN }) => ({
+		...MAX(o.id),
+		...MIN(o.id),
+		...VARIANCE(o.id),
+		...MEDIAN(o.id),
+		...FREQUENCY(`length ${o.name.length}`)
+	}));
+	$: console.log($namesCount);
 </script>
 
 <h1>Welcome to your library project</h1>
