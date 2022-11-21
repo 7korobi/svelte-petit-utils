@@ -10,6 +10,8 @@
 		]
 	);
 	namesBase.add([{ id: 10, name: 'トオ' }]);
+
+	//	const namesBaseCount = namesBase.reduce((o, id, { MAX, MIN, SUM, COUNT }) => ({ ...COUNT(), ...SUM(o.id) }));
 	let id = 100;
 	__BROWSER__ &&
 		setInterval(() => {
@@ -17,6 +19,8 @@
 			namesBase.add([{ id, name: `name-${id}` }]);
 		}, 2000);
 	let names = namesBase.toReader();
+	$: namesCount = names.reduce((o, id, { QUANTILE, VARIANCE, MAX, MIN }) => ({ ...MAX(o.id), ...MIN(o.id), ...VARIANCE(o.id), ...QUANTILE(0, '1/2', 1)(o.id) }));
+	$: console.log($namesCount)
 </script>
 
 <h1>Welcome to your library project</h1>
@@ -46,7 +50,7 @@
 >
 <button
 	on:click={() => {
-		names = names.where((o) => 0 !== o.id % 2).shuffle();
+		names = names.where((o) => 0 === o.id % 2).shuffle();
 	}}>shuffle</button
 >
 
