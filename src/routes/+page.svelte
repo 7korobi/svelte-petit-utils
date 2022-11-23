@@ -1,43 +1,35 @@
 <script lang="ts">
 	import { table, __BROWSER__ } from '$lib';
+	const zero = new Date().getTime();
 	const namesBase = table(
 		(o) => `${o.id}`,
 		[
-			{ id: 1, name: 'イチ' },
-			{ id: 2, name: 'ニ' },
-			{ id: 3, name: 'サン' },
-			{ id: 4, name: 'シ' }
+			{ id: 1, name: 'イチ', created_at: new Date().getTime() - zero },
+			{ id: 2, name: 'ニ', created_at: new Date().getTime() - zero },
+			{ id: 3, name: 'サン', created_at: new Date().getTime() - zero },
+			{ id: 4, name: 'シ', created_at: new Date().getTime() - zero }
 		]
 	);
-	namesBase.add([{ id: 10, name: 'トオ' }]);
+	namesBase.add([{ id: 10, name: 'トオ', created_at: new Date().getTime() - zero }]);
 
 	//	const namesBaseCount = namesBase.reduce((o, id, { MAX, MIN, SUM, COUNT }) => ({ ...COUNT(), ...SUM(o.id) }));
 	let id = 100;
 	__BROWSER__ &&
 		setInterval(() => {
 			id++;
-			namesBase.add([{ id, name: `name-${id}` }]);
-		}, 2000);
+			namesBase.add([{ id, name: `name-${id}`, created_at: new Date().getTime() - zero }]);
+		}, 50);
 	let names = namesBase.toReader();
-	$: namesCount = names.reduce((o, id, { GROUP, COUNT, MEDIAN, VARIANCE, MAX, MIN }) => ({
-		...MAX(o.id),
-		...MIN(o.id),
-		...VARIANCE(o.id),
-		...MEDIAN(o.id),
-		...GROUP(`length ${o.name.length}`, COUNT)
+	$: namesCount = names.reduce((o, id, { GROUP, COUNT, QUANTILE, VARIANCE }) => ({
+		...QUANTILE('min', 'med', 'max')((o.created_at as any) - 0),
+		...VARIANCE((o.created_at as any) - 0),
+		...GROUP(`size`, () => GROUP(`is ${o.name.length}`, COUNT))
 	}));
-	$: console.log($namesCount['length 1'].count);
 </script>
 
 <h1>Welcome to your library project</h1>
 <p>Create your package using @sveltejs/package and preview/showcase your work with SvelteKit</p>
 <p>Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation</p>
-
-{#each $names as item (item.id)}
-	<p>
-		{item.id} : {item.name}
-	</p>
-{/each}
 
 <button
 	on:click={() => {
@@ -63,3 +55,13 @@
 <p>
 	{names.find('10')?.id} : {names.find('10')?.name}
 </p>
+
+<p>
+	{@html JSON.stringify($namesCount).replaceAll(',', '<br/>,')}
+</p>
+
+{#each $names as item (item.id)}
+	<p>
+		{item.id} : {item.name}
+	</p>
+{/each}

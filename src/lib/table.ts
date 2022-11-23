@@ -1,11 +1,9 @@
-import type { Readable, Subscriber, Writable, Unsubscriber } from 'svelte/store';
-
+import type { Readable, Subscriber, Unsubscriber } from 'svelte/store';
 import { BasicTools, type MapReduceContext } from './table-tools.js';
-import { inPlaceSort, sort, type ISortBy } from './fast-sort.js';
 
 type HasKey<T> = { key?: string } & T;
 type IQuery<T> = HasKey<(item: T) => boolean>;
-type IOrder<T> = HasKey<ISortBy<T> | ISortBy<T>[]>;
+type IOrder<T> = HasKey<(item: T) => bigint | number | string | boolean>;
 
 type SubscribeSet<T> = readonly [run: Subscriber<T>, invalidate: (value?: T) => void];
 
@@ -80,7 +78,12 @@ function writableTable<T>(
 	const baseIdx = idx;
 	const baseChildren = children;
 
-	let list: T[] & TableExtra = [] as any;
+	const sortKeys: ReturnType<IOrder<T>>[] = [];
+	const list: T[] & TableExtra = [] as any;
+	list.where = query?.key;
+	list.order = sort?.key;
+	list.orderType = orderType;
+
 	let findAt: { [key in string]: T } = {};
 
 	if (!query && !sort) {
@@ -130,6 +133,8 @@ function writableTable<T>(
 			}
 
 			for (const id of ids) {
+				const idx = list.findIndex((item) => id === finder(item));
+				list.splice(idx, 1);
 				delete findAt[id];
 			}
 			publish();
@@ -169,6 +174,8 @@ function writableTable<T>(
 
 		function delBy(ids: string[]) {
 			for (const id of ids) {
+				const idx = list.findIndex((item) => id === finder(item));
+				list.splice(idx, 1);
 				delete findAt[id];
 			}
 			publish();
@@ -201,6 +208,7 @@ function writableTable<T>(
 		const subscribers = new Set<SubscribeSet<R>>();
 		const result = {} as R;
 
+		let locals: { [baseIdx in string]: any } = {};
 		let inits: { [baseIdx in string]: () => void } = {};
 		let calcs: { [baseIdx in string]: () => void } = {};
 		let addAts: { [itemId in string]: { [baseIdx in string]: () => void } } = {};
@@ -210,21 +218,21 @@ function writableTable<T>(
 		let item: T;
 		let itemId: string;
 		let groupIdx: string;
+		let localIdx: number;
 
 		const tools: Tools<TOOL> = {
 			...BasicTools<T>(context),
 			...customTools(context),
 			GROUP<K extends string, G>(key: K, cb: () => G) {
-				const ground = base;
-				const groundIdx = groupIdx;
+				const stack = [base, groupIdx, localIdx];
 
-				ground[key] ||= {};
-				base = ground[key];
-				groupIdx = `${groundIdx}.GROUP.${key}`;
+				base[key] ||= {};
+				base = base[key];
+				groupIdx = `${groupIdx}/${localIdx}/${key}`;
+				localIdx = 0;
 				cb();
 
-				base = ground;
-				groupIdx = groundIdx;
+				[base, groupIdx, localIdx] = stack;
 
 				return undefined as any as { [idx in K]: G };
 			}
@@ -245,23 +253,26 @@ function writableTable<T>(
 
 		// Mapper section for MapReduce
 		function context<G>(ctxIdx: string): MapReduceContext<T, G> {
-			const baseIdx = `${groupIdx}.${ctxIdx}.`;
+			++localIdx;
+			const path = `${groupIdx}/${localIdx}/${ctxIdx}`;
 			return [
 				base as G,
-				item,
-				itemId,
 				(cb) => {
-					if (!inits[baseIdx]) cb();
-					inits[baseIdx] = cb;
+					if (!inits[path]) cb();
+					inits[path] = cb;
 				},
 				(cb) => {
-					calcs[baseIdx] = cb;
+					calcs[path] = cb;
 				},
 				(cb) => {
-					addAts[itemId][baseIdx] = cb;
+					addAts[itemId][path] = cb;
 				},
 				(cb) => {
-					delAts[itemId][baseIdx] = cb;
+					delAts[itemId][path] = cb;
+				},
+				() => {
+					locals[path] ??= {};
+					return [locals[path], item, itemId];
 				}
 			] as const;
 		}
@@ -303,6 +314,7 @@ function writableTable<T>(
 			item = o;
 			itemId = finder(item);
 			groupIdx = '';
+			localIdx = 0;
 
 			const dels = delAts[itemId];
 			addAts[itemId] = {};
@@ -396,15 +408,6 @@ function writableTable<T>(
 
 	// Writable private section.
 	function publish() {
-		list = Object.values(findAt) as any;
-		if (sort) {
-			orderType ? inPlaceSort(list).desc(sort) : inPlaceSort(list).asc(sort);
-		}
-
-		list.where = query?.key;
-		list.order = sort?.key;
-		list.orderType = orderType;
-
 		// skip if stop.
 		for (const [publishTo, invalidate] of subscribers) {
 			invalidate();
@@ -416,6 +419,21 @@ function writableTable<T>(
 		const id = finder(item);
 		delete findAt[id];
 		findAt[id] = item;
+		if (sort) {
+			const itemKey = sort(item);
+			const idx = orderType
+				? sortKeys.findIndex((sortKey) => sortKey > itemKey)
+				: sortKeys.findIndex((sortKey) => sortKey < itemKey);
+			if (idx < 0) {
+				sortKeys.push(itemKey);
+				list.push(item);
+			} else {
+				sortKeys.splice(idx, 0, itemKey);
+				list.splice(idx, 0, item);
+			}
+		} else {
+			list.push(item);
+		}
 	}
 
 	// Writable section.
