@@ -17,9 +17,11 @@
 	__BROWSER__ &&
 		setInterval(() => {
 			id++;
-		}, 99999999);
+		}, 50);
 	let names = namesBase.toReader();
-	$: namesBase.add([{ id: id % 2 ? id : -id , name: `name-${id}`, created_at: new Date().getTime() - zero }]);
+	$: namesBase.add([
+		{ id: id % 2 ? id : -id, name: `name-${id}`, created_at: new Date().getTime() - zero }
+	]);
 
 	$: namesCount = names.reduce((o, id, { GROUP, COUNT, QUANTILE, VARIANCE }) => ({
 		...QUANTILE('min', 'med', 'max')((o.created_at as any) - 0),
