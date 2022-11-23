@@ -1,18 +1,20 @@
 import type { Readable, Subscriber, Unsubscriber } from 'svelte/store';
-import { BasicTools, type MapReduceContext } from './table-tools.js';
+import { BasicTools } from './table-tools.js';
+
+export type Orderable = Date | bigint | number | string | boolean;
 
 type HasKey<T> = { key?: string } & T;
 type IQuery<T> = HasKey<(item: T) => boolean>;
-type IOrder<T> = HasKey<(item: T) => bigint | number | string | boolean>;
+type IOrder<T> = HasKey<(item: T) => Orderable>;
 
 type SubscribeSet<T> = readonly [run: Subscriber<T>, invalidate: (value?: T) => void];
 
-type TableChildren<T> = { [idx in string]: TableWritable<T> };
 type TableExtra = {
 	orderType: boolean;
 	where?: string;
 	order?: string;
 };
+type TableChildren<T> = { [idx in string]: TableWritable<T> };
 type TableWritable<T> = TableReadable<T> & {
 	toReader(): TableReadable<T>;
 	set(data: T[]): void;
@@ -38,6 +40,14 @@ type Tools<TOOL> = TOOL & ReturnType<typeof BasicTools> & { GROUP: GroupTool };
 
 type IMapper<T, R, TOOL> = HasKey<(item: T, id: string, tool: TOOL) => R>;
 
+export type MapReduceContext<T, G> = readonly [
+	G,
+	(cb: () => void) => void,
+	(cb: () => void) => void,
+	(cb: () => void) => void,
+	(cb: () => void) => void,
+	<C>() => [C, T, string]
+];
 type MapReduceChildren<T, R> = { [idx in string]: MapReduceWritable<T, R> };
 type MapReduceWritable<T, R> = MapReduceReadable<R> & {
 	set(data: T[]): void;
@@ -56,6 +66,21 @@ function subKey(oldIt: HasKey<any>, newIt: HasKey<any>, key?: string) {
 	if (newIt) {
 		result = key || newIt.key || newIt.toString();
 		newIt.key = result;
+	}
+}
+
+function findIndex(orderType: boolean, sortKeys: Orderable[], itemKey: Orderable) {
+	let idx = sortKeys.length;
+	if (orderType) {
+		while (idx--) {
+			if (sortKeys[idx] >= itemKey) return idx + 1;
+		}
+		return 0;
+	} else {
+		while (idx--) {
+			if (sortKeys[idx] <= itemKey) return idx + 1;
+		}
+		return sortKeys.length;
 	}
 }
 
@@ -421,16 +446,9 @@ function writableTable<T>(
 		findAt[id] = item;
 		if (sort) {
 			const itemKey = sort(item);
-			const idx = orderType
-				? sortKeys.findIndex((sortKey) => sortKey > itemKey)
-				: sortKeys.findIndex((sortKey) => sortKey < itemKey);
-			if (idx < 0) {
-				sortKeys.push(itemKey);
-				list.push(item);
-			} else {
-				sortKeys.splice(idx, 0, itemKey);
-				list.splice(idx, 0, item);
-			}
+			const idx = findIndex(orderType, sortKeys, itemKey);
+			sortKeys.splice(idx, 0, itemKey);
+			list.splice(idx, 0, item);
 		} else {
 			list.push(item);
 		}

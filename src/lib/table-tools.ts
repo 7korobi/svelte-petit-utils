@@ -1,11 +1,4 @@
-export type MapReduceContext<T, G> = readonly [
-	G,
-	(cb: () => void) => void,
-	(cb: () => void) => void,
-	(cb: () => void) => void,
-	(cb: () => void) => void,
-	<C>() => [C, T, string]
-];
+import type { MapReduceContext, Orderable } from './table';
 
 const quantileDic = {
 	max: 1,
@@ -13,6 +6,21 @@ const quantileDic = {
 	med: 1 / 2,
 	median: 1 / 2
 };
+
+function findIndex<X, T>(list: [X, T, string][], itemKey: Orderable) {
+	let idx = list.length;
+
+	while (idx--) {
+		if (list[idx][0] <= itemKey) return idx + 1;
+	}
+	return list.length;
+}
+
+function toIdx(value: number): number {
+	const low = Math.floor(value);
+	const high = Math.ceil(value);
+	return high - value < value - low ? high : low;
+}
 
 export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G>) {
 	return {
@@ -104,13 +112,9 @@ export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G
 				}
 			});
 			add(() => {
-				const idx = c.data.findIndex(([val]) => x < val);
+				const idx = findIndex(c.data, x);
 				const data: [X, T, string] = [x, item, itemId];
-				if (idx < 0) {
-					c.data.push(data);
-				} else {
-					c.data.splice(idx, 0, data);
-				}
+				c.data.splice(idx, 0, data);
 			});
 			del(() => {
 				const idx = c.data.findIndex(([val]) => x === val);
@@ -122,9 +126,7 @@ export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G
 			calc(() => {
 				const tail = c.data.length - 1;
 				for (const [label, at] of idxs) {
-					const low = Math.ceil(at * tail);
-					const high = Math.floor(at * tail);
-					const idx = high - at < at - low ? high : low;
+					const idx = toIdx(at * tail);
 					const [x, item, id] = c.data[idx];
 					(o as any)[label] = x;
 					(o as any)[`${label}_id`] = id;
@@ -189,5 +191,3 @@ export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G
 		return undefined as any as typeof o;
 	}
 }
-
-type Orderable = number | string | Date;
