@@ -17,9 +17,10 @@
 	__BROWSER__ &&
 		setInterval(() => {
 			id++;
-			namesBase.add([{ id, name: `name-${id}`, created_at: new Date().getTime() - zero }]);
-		}, 50);
+		}, 99999999);
 	let names = namesBase.toReader();
+	$: namesBase.add([{ id: id % 2 ? id : -id , name: `name-${id}`, created_at: new Date().getTime() - zero }]);
+
 	$: namesCount = names.reduce((o, id, { GROUP, COUNT, QUANTILE, VARIANCE }) => ({
 		...QUANTILE('min', 'med', 'max')((o.created_at as any) - 0),
 		...VARIANCE((o.created_at as any) - 0),
@@ -34,22 +35,28 @@
 <button
 	on:click={() => {
 		names = names.order((o) => o.id);
-	}}>order to id {$names.orderType}</button
+	}}>order to id</button
 >
 <button
 	on:click={() => {
 		names = names.order((o) => o.name);
-	}}>order to name {$names.orderType}</button
+	}}>order to name</button
 >
 <button
 	on:click={() => {
-		names = names.order((o) => o.name?.length);
-	}}>order to name.length {$names.orderType}</button
+		names = names.order((o) => [o.name?.length, o.id]);
+	}}>order to name.length</button
 >
 <button
 	on:click={() => {
 		names = names.where((o) => 0 === o.id % 2).shuffle();
 	}}>shuffle</button
+>
+
+<button
+	on:click={() => {
+		id++;
+	}}>add</button
 >
 
 <p>
@@ -60,6 +67,9 @@
 	{@html JSON.stringify($namesCount).replaceAll(',', '<br/>,')}
 </p>
 
+<p>where = {$names.where}</p>
+<p>order = {$names.order}</p>
+<p>desc = {$names.orderType}</p>
 {#each $names as item (item.id)}
 	<p>
 		{item.id} : {item.name}

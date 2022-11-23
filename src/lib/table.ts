@@ -5,7 +5,7 @@ export type Orderable = Date | bigint | number | string | boolean;
 
 type HasKey<T> = { key?: string } & T;
 type IQuery<T> = HasKey<(item: T) => boolean>;
-type IOrder<T> = HasKey<(item: T) => Orderable>;
+type IOrder<T> = HasKey<(item: T) => Orderable[] | Orderable>;
 
 type SubscribeSet<T> = readonly [run: Subscriber<T>, invalidate: (value?: T) => void];
 
@@ -69,18 +69,43 @@ function subKey(oldIt: HasKey<any>, newIt: HasKey<any>, key?: string) {
 	}
 }
 
-function findIndex(orderType: boolean, sortKeys: Orderable[], itemKey: Orderable) {
-	let idx = sortKeys.length;
+function spliceAt(orderType: boolean, sortKeys: Orderable[][], itemKey: Orderable[]) {
 	if (orderType) {
-		while (idx--) {
-			if (sortKeys[idx] >= itemKey) return idx + 1;
+		// desc list scan.
+		let atIdx = sortKeys.length;
+		while (atIdx--) {
+			let sortIdx = itemKey.length;
+			while (sortIdx--) {
+				const a = sortKeys[atIdx][sortIdx];
+				if (undefined === a) break;
+
+				const b = itemKey[sortIdx];
+				if (undefined === b) return atIdx + 1;
+
+				if (a > b) return atIdx + 1;
+				if (a < b) break;
+				// if (a === b) continue;
+			}
 		}
 		return 0;
 	} else {
-		while (idx--) {
-			if (sortKeys[idx] <= itemKey) return idx + 1;
+		// asc list scan.
+		let atIdx = sortKeys.length;
+		while (atIdx--) {
+			let sortIdx = itemKey.length;
+			while (sortIdx--) {
+				const a = sortKeys[atIdx][sortIdx];
+				if (undefined === a) break;
+
+				const b = itemKey[sortIdx];
+				if (undefined === b) return atIdx + 1;
+
+				if (a < b) return atIdx + 1;
+				if (a > b) break;
+				// if (a === b) continue;
+			}
 		}
-		return sortKeys.length;
+		return 0;
 	}
 }
 
@@ -93,7 +118,7 @@ export function table<T>(finder: (item: T) => string, data: T[]) {
 function writableTable<T>(
 	finder: (item: T) => string,
 	children: TableChildren<T> = {},
-	orderType: boolean = true,
+	orderType: boolean = false,
 	query?: IQuery<T>,
 	sort?: IOrder<T>
 ): TableWritable<T> {
@@ -103,7 +128,7 @@ function writableTable<T>(
 	const baseIdx = idx;
 	const baseChildren = children;
 
-	const sortKeys: ReturnType<IOrder<T>>[] = [];
+	const sortKeys: Orderable[][] = [];
 	const list: T[] & TableExtra = [] as any;
 	list.where = query?.key;
 	list.order = sort?.key;
@@ -414,9 +439,7 @@ function writableTable<T>(
 	function shuffle() {
 		const newSort: IOrder<T> = () => Math.random();
 		newSort.key = 'shuffle';
-		const w = writableTable<T>(finder, children, true, query, newSort);
-		delete children[w.idx];
-		return toChild(w);
+		return toChild(writableTable<T>(finder, children, false, query, newSort));
 	}
 
 	function where(newQuery: IQuery<T> | undefined, key = undefined) {
@@ -445,8 +468,10 @@ function writableTable<T>(
 		delete findAt[id];
 		findAt[id] = item;
 		if (sort) {
-			const itemKey = sort(item);
-			const idx = findIndex(orderType, sortKeys, itemKey);
+			const itemKeyBase = sort(item);
+			const itemKey: Orderable[] =
+				itemKeyBase instanceof Array ? itemKeyBase.reverse() : [itemKeyBase];
+			const idx = spliceAt(orderType, sortKeys, itemKey);
 			sortKeys.splice(idx, 0, itemKey);
 			list.splice(idx, 0, item);
 		} else {

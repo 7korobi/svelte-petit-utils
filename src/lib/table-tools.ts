@@ -7,7 +7,7 @@ const quantileDic = {
 	median: 1 / 2
 };
 
-function findIndex<X, T>(list: [X, T, string][], itemKey: Orderable) {
+function spliceAt<X, T>(list: [X, T, string][], itemKey: Orderable) {
 	let idx = list.length;
 
 	while (idx--) {
@@ -112,7 +112,7 @@ export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G
 				}
 			});
 			add(() => {
-				const idx = findIndex(c.data, x);
+				const idx = spliceAt(c.data, x);
 				const data: [X, T, string] = [x, item, itemId];
 				c.data.splice(idx, 0, data);
 			});
