@@ -9,8 +9,8 @@ const quantileDic = {
 
 // バイナリサーチ
 function spliceAt<X, T>(list: [X, T, string][], b: Orderable) {
-  let head = 0;
-  let tail = list.length;
+	let head = 0;
+	let tail = list.length;
 
 	while (head < tail) {
 		const idx = (head + tail) >>> 1;

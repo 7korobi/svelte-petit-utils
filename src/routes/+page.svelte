@@ -1,6 +1,96 @@
 <script lang="ts">
 	import { table, __BROWSER__ } from '$lib';
-	const zero = new Date().getTime();
+
+	type A = { _id: number; name: string; b?: B; b_id?: number; c?: C; c_id?: number };
+	type B = {
+		_id: number;
+		name: string;
+		as?: A[];
+		cs?: (C | undefined)[];
+		parent?: B;
+		children?: B[];
+		parent_id?: number;
+	};
+	type C = { _id: number; name: string; as?: A[]; bs?: (B | undefined)[] };
+	const A = table<A>(({ _id }) => `${_id}`, [{ _id: 1, name: 'いち', b_id: 2, c_id: 4 }]);
+	const B = table<B>(
+		({ _id }) => `${_id}`,
+		[
+			{ _id: 2, name: 'に', parent_id: 3 },
+			{ _id: 3, name: 'さん' }
+		]
+	);
+	const C = table<C>(({ _id }) => `${_id}`, [{ _id: 4, name: 'よん' }]);
+
+	A.belongsTo(
+		// foreign[key] = [{},{}]
+		// A#children.push(    !B.add; key = arg2(a); [as, bs] = foreign[key]; as[A#finder(a)] = a; as{ arg4(a, bs, a_id, b_ids) }; ! arg5 )
+		// B#children.push( A.add([]); key = arg3(b); [as, bs] = foreign[key]; bs[B#finder(b)] = b; as{ arg4(a, bs, a_id, b_ids) }; ! arg5 )
+		B,
+		(a) => a.b_id,
+		(b) => b._id,
+		(a, bs) => (a.b = bs[0])
+	);
+	B.hasMany(
+		// foreign[key] = [{},{}]
+		// A#children.push( B.add([]); key = arg2(a); [as, bs] = foreign[key]; as[A#finder(a)] = a; as{ arg4(a, bs, a_id, b_ids) }; ! arg5 )
+		// B#children.push( A.add([]); key = arg3(b); [as, bs] = foreign[key]; bs[B#finder(b)] = b; as{ arg4(a, bs, a_id, b_ids) }; bs{ arg5(as, b, a_ids, b_id) })
+		A,
+		(a) => a.b_id,
+		(b) => b._id,
+		(a, bs) => (a.b = bs[0]),
+		(b, as) => (b.as = as)
+	);
+
+	A.belongsTo(
+		// foreign[key] = [{},{}]
+		// A#children.push(    !C.add; key = arg2(a); [as, cs] = foreign[key]; as[A#finder(a)] = a; as{ arg4(a, cs, a_id, c_ids) }; ! arg5 )
+		// C#children.push( A.add([]); key = arg3(c); [as, cs] = foreign[key]; cs[C#finder(c)] = c; as{ arg4(a, cs, a_id, c_ids) }; ! arg5 )
+		C,
+		(a) => a.c_id,
+		(c) => c._id,
+		(a, cs) => (a.c = cs[0])
+	);
+	C.hasMany(
+		// foreign[key] = [{},{}]
+		// A#children.push( C.add([]); key = arg2(a); [as, cs] = foreign[key]; as[A#finder(a)] = a; as{ arg4(a, cs, a_id, c_ids) }; ! arg5 )
+		// C#children.push( A.add([]); key = arg3(c); [as, cs] = foreign[key]; cs[C#finder(b)] = c; as{ arg4(a, cs, a_id, c_ids) }; cs{ arg5(as, c, a_ids, c_id) })
+		A,
+		(a) => a.c_id,
+		(c) => c._id,
+		(a, cs) => (a.c = cs[0]),
+		(c, as) => (c.as = as)
+	);
+
+	B.belongsTo(
+		// foreign[key] = [{},{}]
+		// B#children.push( !B.add; key = arg2(b1); [b1s, b2s] = foreign[key]; b1s[B#finder(b1)] = b1; b1s{ arg4(b, b2s, b_id, b2_ids) }; ! arg5 )
+		// B#children.push( !B.add; key = arg3(b2); [b1s, b2s] = foreign[key]; b2s[B#finder(b2)] = b2; b1s{ arg4(b, b2s, b_id, b2_ids) }; ! arg5 )
+		B,
+		(b1) => b1.parent_id,
+		(b2) => b2._id,
+		(b1, b2s) => (b1.parent = b2s[0])
+	);
+	B.hasMany(
+		// foreign[key] = [{},{}]
+		// B#children.push( !B.add; key = arg2(b1); [b1s, b2s] = foreign[key]; b1s[B#finder(b1)] = b1; b1s{ arg4(b, b2s, b_id, b2_ids) }; ! arg5 )
+		// B#children.push( !B.add; key = arg3(b2); [b1s, b2s] = foreign[key]; b2s[B#finder(b2)] = b2; b1s{ arg4(b, b2s, b_id, b2_ids) }; ! arg5 )
+		B,
+		(b1) => b1.parent_id,
+		(b2) => b2._id,
+		(b1, b2s) => (b1.parent = b2s[0]),
+		(b2, b1s) => (b2.children = b1s)
+	);
+
+	A.through(
+		// B#children.push( A.add([]); C.add([]); arg3(b) )
+		// C#children.push( A.add([]); B.add([]); arg4(c) )
+		B,
+		C,
+		(b) => (b.cs = b.as?.map((a) => a.c!)),
+		(c) => (c.bs = c.as?.map((a) => a.b))
+	);
+
 	const namesBase = table(
 		(o) => `${o.id}`,
 		[
@@ -17,11 +107,9 @@
 	__BROWSER__ &&
 		setInterval(() => {
 			id++;
-		}, 50);
+		}, 1);
 	let names = namesBase.toReader();
-	$: namesBase.add([
-		{ id: id % 2 ? id : -id, name: `name-${id}`, created_at: new Date() }
-	]);
+	$: namesBase.add([{ id: id % 2 ? id : -id, name: `name-${id}`, created_at: new Date() }]);
 
 	$: namesCount = names.reduce((o, id, { GROUP, COUNT, QUANTILE, VARIANCE }) => ({
 		...QUANTILE('min', 'med', 'max')(o.id),
@@ -72,8 +160,3 @@
 <p>where = {$names.where}</p>
 <p>order = {$names.order}</p>
 <p>desc = {$names.orderType}</p>
-{#each $names as item (item.id)}
-	<p>
-		{item.id} : {item.name}
-	</p>
-{/each}
