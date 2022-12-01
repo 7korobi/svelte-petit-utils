@@ -7,13 +7,26 @@ const quantileDic = {
 	median: 1 / 2
 };
 
-function spliceAt<X, T>(list: [X, T, string][], itemKey: Orderable) {
-	let idx = list.length;
+// バイナリサーチ
+function spliceAt<X, T>(list: [X, T, string][], b: Orderable) {
+  let head = 0;
+  let tail = list.length;
 
-	while (idx--) {
-		if (list[idx][0] <= itemKey) return idx + 1;
+	while (head < tail) {
+		const idx = (head + tail) >>> 1;
+		const a = list[idx][0];
+
+		if (undefined === a) {
+			tail = idx;
+		} else if (b < a) {
+			tail = idx;
+		} else if (a < b) {
+			head = idx + 1;
+		} else {
+			return idx + 1;
+		}
 	}
-	return list.length;
+	return head;
 }
 
 function toIdx(value: number): number {

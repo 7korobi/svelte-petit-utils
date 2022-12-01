@@ -4,13 +4,13 @@
 	const namesBase = table(
 		(o) => `${o.id}`,
 		[
-			{ id: 1, name: 'イチ', created_at: new Date().getTime() - zero },
-			{ id: 2, name: 'ニ', created_at: new Date().getTime() - zero },
-			{ id: 3, name: 'サン', created_at: new Date().getTime() - zero },
-			{ id: 4, name: 'シ', created_at: new Date().getTime() - zero }
+			{ id: 1, name: 'イチ', created_at: new Date() },
+			{ id: 2, name: 'ニ', created_at: new Date() },
+			{ id: 3, name: 'サン', created_at: new Date() },
+			{ id: 4, name: 'シ', created_at: new Date() }
 		]
 	);
-	namesBase.add([{ id: 10, name: 'トオ', created_at: new Date().getTime() - zero }]);
+	namesBase.add([{ id: 10, name: 'トオ', created_at: new Date() }]);
 
 	//	const namesBaseCount = namesBase.reduce((o, id, { MAX, MIN, SUM, COUNT }) => ({ ...COUNT(), ...SUM(o.id) }));
 	let id = 100;
@@ -20,12 +20,12 @@
 		}, 50);
 	let names = namesBase.toReader();
 	$: namesBase.add([
-		{ id: id % 2 ? id : -id, name: `name-${id}`, created_at: new Date().getTime() - zero }
+		{ id: id % 2 ? id : -id, name: `name-${id}`, created_at: new Date() }
 	]);
 
 	$: namesCount = names.reduce((o, id, { GROUP, COUNT, QUANTILE, VARIANCE }) => ({
-		...QUANTILE('min', 'med', 'max')((o.created_at as any) - 0),
-		...VARIANCE((o.created_at as any) - 0),
+		...QUANTILE('min', 'med', 'max')(o.id),
+		...VARIANCE(o.id - 0),
 		...GROUP(`size`, () => GROUP(`is ${o.name.length}`, COUNT))
 	}));
 </script>

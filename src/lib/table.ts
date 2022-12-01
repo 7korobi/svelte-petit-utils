@@ -14,12 +14,30 @@ type TableExtra = {
 	where?: string;
 	order?: string;
 };
-type TableChildren<T> = { [idx in string]: TableWritable<T> };
-type TableWritable<T> = TableReadable<T> & {
-	toReader(): TableReadable<T>;
+type TableChildren<T> = { [idx in string]: TableBase<T> };
+type TableBase<T> = {
 	set(data: T[]): void;
 	add(data: T[]): void;
 	delBy(ids: string[]): void;
+}
+type TableWritable<T> = TableBase<T> & TableReadable<T> & {
+	toReader(): TableReadable<T>;
+
+	entagle(): [Finder<T>, TableChildren<T>];
+	belongsTo<U>(pair: TableWritable<U>, t2key: toKey<T>, u2key: toKey<U>, tBind: Bind<T, U>): void;
+	hasMany<U>(
+		pair: TableWritable<U>,
+		u2key: toKey<U>,
+		t2key: toKey<T>,
+		uBind: Bind<U, T>,
+		tBind: Bind<T, U>
+	): void;
+	through<X, Y>(
+		xw: TableWritable<X>,
+		yw: TableWritable<Y>,
+		xBind: (x:X)=>any,
+		yBind: (y:Y)=>any
+	): void;
 };
 type TableReadable<T> = Readable<T[] & TableExtra> & {
 	find(key: string): T;
@@ -70,53 +88,148 @@ function subKey(oldIt: HasKey<any>, newIt: HasKey<any>, key?: string) {
 }
 
 function spliceAt(orderType: boolean, sortKeys: Orderable[][], itemKey: Orderable[]) {
+	// バイナリサーチ
 	if (orderType) {
 		// desc list scan.
-		let atIdx = sortKeys.length;
-		while (atIdx--) {
+		let head = 0;
+		let tail = sortKeys.length
+
+		while (head < tail) {
 			let sortIdx = itemKey.length;
 			while (sortIdx--) {
-				const a = sortKeys[atIdx][sortIdx];
-				if (undefined === a) break;
-
 				const b = itemKey[sortIdx];
-				if (undefined === b) return atIdx + 1;
+				if (undefined === b) return tail;
 
-				if (a > b) return atIdx + 1;
-				if (a < b) break;
-				// if (a === b) continue;
+				const idx = (head + tail) >>> 1;
+				const a = sortKeys[idx][sortIdx];
+				if (undefined === a) {
+					tail = idx;
+					break;
+				} else if (b > a) {
+					tail = idx;
+					break;
+				} else if (a > b) {
+					head = idx + 1;
+					break;
+				} else {
+					idx + 1;
+					continue;
+				}
 			}
 		}
-		return 0;
+		return head;
 	} else {
 		// asc list scan.
-		let atIdx = sortKeys.length;
-		while (atIdx--) {
+		let head = 0;
+		let tail = sortKeys.length
+
+		while (head < tail) {
 			let sortIdx = itemKey.length;
 			while (sortIdx--) {
-				const a = sortKeys[atIdx][sortIdx];
-				if (undefined === a) break;
-
 				const b = itemKey[sortIdx];
-				if (undefined === b) return atIdx + 1;
+				if (undefined === b) return tail;
 
-				if (a < b) return atIdx + 1;
-				if (a > b) break;
-				// if (a === b) continue;
+				const idx = (head + tail) >>> 1;
+				const a = sortKeys[idx][sortIdx];
+				if (undefined === a) {
+					tail = idx;
+					break;
+				} else if (b < a) {
+					tail = idx;
+					break;
+				} else if (a < b) {
+					head = idx + 1;
+					break;
+				} else {
+					idx + 1;
+					continue;
+				}
 			}
 		}
-		return 0;
+		return head;
 	}
 }
 
-export function table<T>(finder: (item: T) => string, data: T[]) {
+type Finder<A> = (a: A) => string;
+type toKey<A> = (a: A) => Orderable | undefined;
+type Bind<A, B> = (a: A, bs: B[]) => any;
+type Foreign<A> = { [id: string]: A };
+type Foreigns<A, B> = {
+	[key: string]: [Foreign<A>, Foreign<B>];
+};
+type ByForeign<A, B> = [
+	aw: TableWritable<A>,
+	aFinder: Finder<A>,
+	aChildren: TableChildren<A>,
+	a2key: toKey<A>,
+	aBind?: Bind<A, B>
+];
+
+function byForeign<T, U>(
+	[tw, tFinder, tChildren, t2key, tBind]: ByForeign<T, U>,
+	[uw, uFinder, uChildren, u2key, uBind]: ByForeign<U, T>
+): any {
+	const foreign: Foreigns<T, U> = {};
+
+	tChildren['foreign'] = doIt(tEntry)
+	uChildren['foreign'] = doIt(uEntry)
+
+	function doIt<A>(bind: (a:A)=> any) {
+		return { set, add, delBy }
+		function set(as: A[]) {
+			as.forEach(bind)
+		}
+		function add(as: A[]) {
+			as.forEach(bind)
+		}
+		function delBy(ids: string[]) {
+		}
+	}
+
+	function tEntry(t: T) {
+		const key = t2key(t);
+		if (!key) return;
+
+		const [ts, us] = (foreign[`${key}`] ||= [{}, {}]);
+		ts[tFinder(t)] = t;
+
+		binds(ts, us, tBind, uBind);
+	}
+
+	function uEntry(u: U) {
+		const key = u2key(u);
+		if (!key) return;
+
+		const [ts, us] = (foreign[`${key}`] ||= [{}, {}]);
+		us[uFinder(u)] = u;
+
+		binds(ts, us, tBind, uBind);
+	}
+
+	function binds(ts: Foreign<T>, us: Foreign<U>, tBind?: Bind<T, U>, uBind?: Bind<U, T>) {
+		const tlist = Object.values(ts);
+		const ulist = Object.values(us);
+
+		if (tBind)
+			for (const t of tlist) {
+				tBind(t, ulist);
+			}
+
+		if (uBind)
+			for (const u of ulist) {
+				uBind(u, tlist);
+			}
+	}
+}
+
+export function table<T>(finder: Finder<T>, data: T[]) {
 	const writable = writableTable(finder);
 	writable.set(data);
 	return writable;
 }
 
 function writableTable<T>(
-	finder: (item: T) => string,
+	finder: Finder<T>,
 	children: TableChildren<T> = {},
 	orderType: boolean = false,
 	query?: IQuery<T>,
@@ -150,6 +263,10 @@ function writableTable<T>(
 			delBy,
 			toReader,
 
+			entagle,
+			belongsTo,
+			hasMany,
+			through,
 			idx
 		};
 
@@ -167,8 +284,6 @@ function writableTable<T>(
 		}
 
 		function add(data: T[]) {
-			if (query) data = data.filter(query);
-
 			data.forEach(itemAdd);
 			publish();
 
@@ -203,6 +318,10 @@ function writableTable<T>(
 			delBy,
 			toReader,
 
+			entagle,
+			belongsTo,
+			hasMany,
+			through,
 			idx
 		};
 
@@ -211,6 +330,8 @@ function writableTable<T>(
 			if (query) data = data.filter(query);
 
 			findAt = {};
+			list.length = 0;
+
 			data.forEach(itemAdd);
 			publish();
 		}
@@ -236,7 +357,7 @@ function writableTable<T>(
 	function toChild(w: TableWritable<T>): TableReadable<T> {
 		const { find, idx, subscribe, shuffle, where, order, reduce } = w;
 
-		if (children[idx]) return children[idx];
+		if (children[idx]) return children[idx] as TableWritable<T>;
 
 		w.set(list);
 		children[idx] = w;
@@ -411,6 +532,51 @@ function writableTable<T>(
 		}
 	}
 
+	// Foreign section.
+	function entagle(): [Finder<T>, TableChildren<T>] {
+		return [finder, baseChildren];
+	}
+
+	function belongsTo<U>(uw: TableWritable<U>, t2key: toKey<T>, u2key: toKey<U>, tBind: Bind<T, U>) {
+		const [uFinder, uChildren] = uw.entagle();
+		byForeign([{} as TableWritable<T>, finder, baseChildren, t2key, tBind], [uw, uFinder, uChildren, u2key]);
+	}
+
+	function hasMany<U>(
+		uw: TableWritable<U>,
+		u2key: toKey<U>,
+		t2key: toKey<T>,
+		uBind: Bind<U, T>,
+		tBind: Bind<T, U>
+	) {
+		const [uFinder, uChildren] = uw.entagle();
+		byForeign([uw, uFinder, uChildren, u2key, uBind], [{} as TableWritable<T>, finder, baseChildren, t2key, tBind]);
+	}
+
+	function through<X, Y>(
+		xw: TableWritable<X>,
+		yw: TableWritable<Y>,
+		xBind: (x: X) => any,
+		yBind: (y: Y) => any
+	) {
+		const [xFinder, xChildren] = xw.entagle();
+		const [yFinder, yChildren] = yw.entagle();
+		xChildren['through'] = doIt(xBind);
+		yChildren['through'] = doIt(yBind);
+
+		function doIt<A>(bind: (a:A)=> any) {
+			return { set, add, delBy }
+			function set(as: A[]) {
+				as.forEach(bind)
+			}
+			function add(as: A[]) {
+				as.forEach(bind)
+			}
+			function delBy(ids: string[]) {
+			}
+		}
+	}
+
 	// Readable section.
 	function subscribe(
 		run: (list: T[] & TableExtra) => void,
@@ -484,3 +650,93 @@ function writableTable<T>(
 		return { find, idx, subscribe, shuffle, where, order, reduce };
 	}
 }
+
+type A = { _id: number; name: string; b?: B; b_id?: number; c?: C; c_id?: number };
+type B = {
+	_id: number;
+	name: string;
+	as?: A[];
+	cs?: (C | undefined)[];
+	parent?: B;
+	children?: B[];
+	parent_id?: number;
+};
+type C = { _id: number; name: string; as?: A[]; bs?: (B | undefined)[] };
+const A = table<A>(({ _id }) => `${_id}`, [{ _id: 1, name: 'いち', b_id: 2, c_id: 4 }]);
+const B = table<B>(
+	({ _id }) => `${_id}`,
+	[
+		{ _id: 2, name: 'に', parent_id: 3 },
+		{ _id: 3, name: 'さん' }
+	]
+);
+const C = table<C>(({ _id }) => `${_id}`, [{ _id: 4, name: 'よん' }]);
+
+A.belongsTo(
+	// foreign[key] = [{},{}]
+	// A#children.push(    !B.add; key = arg2(a); [as, bs] = foreign[key]; as[A#finder(a)] = a; as{ arg4(a, bs, a_id, b_ids) }; ! arg5 )
+	// B#children.push( A.add([]); key = arg3(b); [as, bs] = foreign[key]; bs[B#finder(b)] = b; as{ arg4(a, bs, a_id, b_ids) }; ! arg5 )
+	B,
+	(a) => a.b_id,
+	(b) => b._id,
+	(a, bs) => (a.b = bs[0])
+);
+B.hasMany(
+	// foreign[key] = [{},{}]
+	// A#children.push( B.add([]); key = arg2(a); [as, bs] = foreign[key]; as[A#finder(a)] = a; as{ arg4(a, bs, a_id, b_ids) }; ! arg5 )
+	// B#children.push( A.add([]); key = arg3(b); [as, bs] = foreign[key]; bs[B#finder(b)] = b; as{ arg4(a, bs, a_id, b_ids) }; bs{ arg5(as, b, a_ids, b_id) })
+	A,
+	(a) => a.b_id,
+	(b) => b._id,
+	(a, bs) => (a.b = bs[0]),
+	(b, as) => (b.as = as)
+);
+
+A.belongsTo(
+	// foreign[key] = [{},{}]
+	// A#children.push(    !C.add; key = arg2(a); [as, cs] = foreign[key]; as[A#finder(a)] = a; as{ arg4(a, cs, a_id, c_ids) }; ! arg5 )
+	// C#children.push( A.add([]); key = arg3(c); [as, cs] = foreign[key]; cs[C#finder(c)] = c; as{ arg4(a, cs, a_id, c_ids) }; ! arg5 )
+	C,
+	(a) => a.c_id,
+	(c) => c._id,
+	(a, cs) => (a.c = cs[0])
+);
+C.hasMany(
+	// foreign[key] = [{},{}]
+	// A#children.push( C.add([]); key = arg2(a); [as, cs] = foreign[key]; as[A#finder(a)] = a; as{ arg4(a, cs, a_id, c_ids) }; ! arg5 )
+	// C#children.push( A.add([]); key = arg3(c); [as, cs] = foreign[key]; cs[C#finder(b)] = c; as{ arg4(a, cs, a_id, c_ids) }; cs{ arg5(as, c, a_ids, c_id) })
+	A,
+	(a) => a.c_id,
+	(c) => c._id,
+	(a, cs) => (a.c = cs[0]),
+	(c, as) => (c.as = as)
+);
+
+B.belongsTo(
+	// foreign[key] = [{},{}]
+	// B#children.push( !B.add; key = arg2(b1); [b1s, b2s] = foreign[key]; b1s[B#finder(b1)] = b1; b1s{ arg4(b, b2s, b_id, b2_ids) }; ! arg5 )
+	// B#children.push( !B.add; key = arg3(b2); [b1s, b2s] = foreign[key]; b2s[B#finder(b2)] = b2; b1s{ arg4(b, b2s, b_id, b2_ids) }; ! arg5 )
+	B,
+	(b1) => b1.parent_id,
+	(b2) => b2._id,
+	(b1, b2s) => (b1.parent = b2s[0])
+);
+B.hasMany(
+	// foreign[key] = [{},{}]
+	// B#children.push( !B.add; key = arg2(b1); [b1s, b2s] = foreign[key]; b1s[B#finder(b1)] = b1; b1s{ arg4(b, b2s, b_id, b2_ids) }; ! arg5 )
+	// B#children.push( !B.add; key = arg3(b2); [b1s, b2s] = foreign[key]; b2s[B#finder(b2)] = b2; b1s{ arg4(b, b2s, b_id, b2_ids) }; ! arg5 )
+	B,
+	(b1) => b1.parent_id,
+	(b2) => b2._id,
+	(b1, b2s) => (b1.parent = b2s[0]),
+	(b2, b1s) => (b2.children = b1s)
+);
+
+A.through(
+	// B#children.push( A.add([]); C.add([]); arg3(b) )
+	// C#children.push( A.add([]); B.add([]); arg4(c) )
+	B,
+	C,
+	(b) => (b.cs = b.as?.map((a) => a.c!)),
+	(c) => (c.bs = c.as?.map((a) => a.b))
+);
