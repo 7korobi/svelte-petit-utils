@@ -1,18 +1,16 @@
 <script lang="ts">
 	import { table, __BROWSER__ } from '$lib';
 
-	type A = { _id: number; name: string; b?: B; b_id?: number; c?: C; c_id?: number };
+	type A = { _id: number; name: string; b?: B; b_id?: number; c_id?: number };
 	type B = {
 		_id: number;
 		name: string;
-		as?: A[];
-		cs?: (C | undefined)[];
-		parent?: B;
-		children?: B[];
 		parent_id?: number;
 	};
-	type C = { _id: number; name: string; as?: A[]; bs?: (B | undefined)[] };
+	type C = { _id: number; name: string };
+
 	const A = table<A>(({ _id }) => `${_id}`, [{ _id: 1, name: 'いち', b_id: 2, c_id: 4 }]);
+
 	const B = table<B>(
 		({ _id }) => `${_id}`,
 		[
@@ -20,7 +18,64 @@
 			{ _id: 3, name: 'さん' }
 		]
 	);
+
 	const C = table<C>(({ _id }) => `${_id}`, [{ _id: 4, name: 'よん' }]);
+
+	/*
+	const asOfC = C.hasMany(A, (a)=> [a.c_id], (c)=> c._id).order((a)=> a._id)
+	const asOfB = B.hasMany(A, (a)=> [a.b_id], (b)=> b._id).order((a)=> a._id)
+
+	const cByA = asOfC.belongsTo
+	const bByA = asOfB.belongsTo
+
+	const bsOfC = A.through(bByA, aOfC)
+	const csOfB = A.through(cByA, aOfB)
+	const children = B.hasMany(B, (b)=> [B.parent_id], (b)=> b._id)
+
+	$cByA(a)
+	$asOfC(c)
+	$bsOfC(c)
+
+	$bByA(a)
+	$asOfB(b)
+	$csOfB(b)
+
+	$children(b)
+
+	// Role has many Card
+	const cardsByRole = roles.hasMany(cards, (c)=> c.role_id) // role.id is finder
+	const cardsByUser = users.hasMany(cards, (c)=> c.user_id) // user.id is finder
+	const [rolesByUser, usersByRole] = cards.through(cardsByRole, cardsByUser)
+
+	cardsByUser(user)
+	rolesByUser(user)
+	usersByRole(role)
+
+	for(const role of $roles) {
+		$cardsByRole(role) // card.role_id === role.id
+	}
+	for(const user of $users) {
+
+	}
+
+	for(const c of $C) {
+		asOfC(c,$A)
+		c.as($A)
+		$A.(c)
+	}
+	for(const b of $B) {
+		bsOfC(b,$A)
+		b.as($A)
+		$A.with(b)
+	}
+	for(const b of $B) {
+		parent(b)
+		children(b)
+		b.parent($B)
+		b.children($B)
+		$B.parentOf(b)
+		$B.childrenOf(b)
+	}
 
 	A.belongsTo(
 		// foreign[key] = [{},{}]
@@ -29,7 +84,7 @@
 		B,
 		(a) => a.b_id,
 		(b) => b._id,
-		(a, bs) => (a.b = bs[0])
+		'b'
 	);
 	B.hasMany(
 		// foreign[key] = [{},{}]
@@ -38,8 +93,8 @@
 		A,
 		(a) => a.b_id,
 		(b) => b._id,
-		(a, bs) => (a.b = bs[0]),
-		(b, as) => (b.as = as)
+		'b',
+		'as'
 	);
 
 	A.belongsTo(
@@ -49,7 +104,7 @@
 		C,
 		(a) => a.c_id,
 		(c) => c._id,
-		(a, cs) => (a.c = cs[0])
+		'c'
 	);
 	C.hasMany(
 		// foreign[key] = [{},{}]
@@ -58,8 +113,8 @@
 		A,
 		(a) => a.c_id,
 		(c) => c._id,
-		(a, cs) => (a.c = cs[0]),
-		(c, as) => (c.as = as)
+		'c',
+		'as'
 	);
 
 	B.belongsTo(
@@ -69,7 +124,7 @@
 		B,
 		(b1) => b1.parent_id,
 		(b2) => b2._id,
-		(b1, b2s) => (b1.parent = b2s[0])
+		'parent'
 	);
 	B.hasMany(
 		// foreign[key] = [{},{}]
@@ -78,8 +133,8 @@
 		B,
 		(b1) => b1.parent_id,
 		(b2) => b2._id,
-		(b1, b2s) => (b1.parent = b2s[0]),
-		(b2, b1s) => (b2.children = b1s)
+		'parent',
+		'children'
 	);
 
 	A.through(
@@ -87,9 +142,12 @@
 		// C#children.push( A.add([]); B.add([]); arg4(c) )
 		B,
 		C,
-		(b) => (b.cs = b.as?.map((a) => a.c!)),
-		(c) => (c.bs = c.as?.map((a) => a.b))
+		'cs'
+		(b) => (b.as?.map((a) => a.c!)),
+		'bs',
+		(c) => (c.as?.map((a) => a.b))
 	);
+*/
 
 	const namesBase = table(
 		(o) => `${o.id}`,
@@ -109,7 +167,7 @@
 			id++;
 		}, 1);
 	let names = namesBase.toReader();
-	$: namesBase.add([{ id: id % 2 ? id : -id, name: `name-${id}`, created_at: new Date() }]);
+	$: namesBase.add([{ id: id % 100, name: `name-${id}`, created_at: new Date() }]);
 
 	$: namesCount = names.reduce((o, id, { GROUP, COUNT, QUANTILE, VARIANCE }) => ({
 		...QUANTILE('min', 'med', 'max')(o.id),
@@ -160,3 +218,13 @@
 <p>where = {$names.where}</p>
 <p>order = {$names.order}</p>
 <p>desc = {$names.orderType}</p>
+
+<p>A : {JSON.stringify($A)}</p>
+<p>B : {JSON.stringify($B)}</p>
+<p>C : {JSON.stringify($C)}</p>
+
+{#each $names as item (item.id)}
+	<p>
+		{item.id} : {item.name}
+	</p>
+{/each}

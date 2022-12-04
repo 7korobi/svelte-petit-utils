@@ -547,7 +547,7 @@ function writableTable<T>(
 		return [finder, baseChildren];
 	}
 
-	function belongsTo<U>(uw: TableWritable<U>, t2key: toKey<T>, u2key: toKey<U>, tBind: Bind<T, U>) {
+	function belongsTo<U>(uw: TableWritable<U>, t2key: toKey<T>, u2key: toKey<U>, key: string) {
 		const [uFinder, uChildren] = uw.entagle();
 		byForeign(
 			[{} as TableWritable<T>, finder, baseChildren, t2key, tBind],
@@ -646,7 +646,12 @@ function writableTable<T>(
 
 	function itemAdd(item: T) {
 		const id = finder(item);
-		delete findAt[id];
+		if (findAt[id]) {
+			const idx = list.indexOf(findAt[id]);
+			delete findAt[id];
+			list.splice(idx, 1);
+			if (sort) sortKeys.splice(idx, 1);
+		}
 		findAt[id] = item;
 		if (sort) {
 			const itemKeyBase = sort(item);

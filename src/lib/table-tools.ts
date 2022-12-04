@@ -8,23 +8,56 @@ const quantileDic = {
 };
 
 // バイナリサーチ
-function spliceAt<X, T>(list: [X, T, string][], b: Orderable) {
+function spliceAt0<X extends Orderable, T>(list: [X, T, string][], b: Orderable) {
 	let head = 0;
 	let tail = list.length;
 
+	if (undefined === b) return tail;
+
 	while (head < tail) {
 		const idx = (head + tail) >>> 1;
-		const a = list[idx][0];
 
+		const a = list[idx][0];
 		if (undefined === a) {
 			tail = idx;
-		} else if (b < a) {
-			tail = idx;
-		} else if (a < b) {
-			head = idx + 1;
-		} else {
-			return idx + 1;
+			continue;
 		}
+		if (b < a) {
+			tail = idx;
+			continue;
+		}
+		if (a < b) {
+			head = idx + 1;
+			continue;
+		}
+		return idx + 1;
+	}
+	return head;
+}
+
+function spliceAt<X extends Orderable, T>(list: X[], b: Orderable) {
+	let head = 0;
+	let tail = list.length;
+
+	if (undefined === b) return tail;
+
+	while (head < tail) {
+		const idx = (head + tail) >>> 1;
+
+		const a = list[idx];
+		if (undefined === a) {
+			tail = idx;
+			continue;
+		}
+		if (b < a) {
+			tail = idx;
+			continue;
+		}
+		if (a < b) {
+			head = idx + 1;
+			continue;
+		}
+		return idx + 1;
 	}
 	return head;
 }
@@ -125,16 +158,13 @@ export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G
 				}
 			});
 			add(() => {
-				const idx = spliceAt(c.data, x);
+				const idx = spliceAt0(c.data, x);
 				const data: [X, T, string] = [x, item, itemId];
 				c.data.splice(idx, 0, data);
 			});
 			del(() => {
-				const idx = c.data.findIndex(([val]) => x === val);
-				if (idx < 0) {
-				} else {
-					c.data.splice(idx, 1);
-				}
+				const idx = spliceAt0(c.data, x);
+				c.data.splice(idx - 1, 1);
 			});
 			calc(() => {
 				const tail = c.data.length - 1;
@@ -176,14 +206,15 @@ export function BasicTools<T>(context: <G>(key: string) => MapReduceContext<T, G
 		});
 
 		add(() => {
-			c.data.push(x);
+			const idx = spliceAt(c.data, x);
+			c.data.splice(idx, 0, x);
 			o.sum += x;
 			o.count += count;
 		});
 
 		del(() => {
-			const idx = c.data.indexOf(x);
-			c.data.splice(idx, 1);
+			const idx = spliceAt(c.data, x);
+			c.data.splice(idx - 1, 1);
 			o.sum -= x;
 			o.count -= count;
 		});
